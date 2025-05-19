@@ -1,0 +1,72 @@
+services:
+  backend:
+    build:
+      context: ./backend # Assuming your FastAPI code is in a 'backend' directory
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000" # Or your desired port
+    volumes:
+      - ./backend:/app # Mount your backend code for live updates (optional for production)
+    environment:
+      # Database connection string for the standard database
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      # Database connection string for the vector database
+      VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
+      # Add any other necessary environment variables for your FastAPI app
+    depends_on:
+      - db
+      - vectordb
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend # Assuming your React code is in a 'frontend' directory
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80" # Or your desired port for the React app
+    volumes:
+      - ./frontend:/app # Mount your frontend code for live updates (optional for production)
+      - /app/node_modules # Avoids overwriting node_modules in the container
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  db:
+    image: postgres:13 # You can choose a different PostgreSQL version
+    ports:
+      - "5433:5432" # Map to a different host port if 5432 is in use
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist standard database data
+    networks:
+      - app-network
+
+  vectordb:
+    image: ankane/pgvector # Using a pre-built image with pgvector
+    ports:
+      - "5434:5432" # Map to a different host port
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vector_db
+      # If using ankane/pgvector, you might need to explicitly enable the extension
+      # via an initialization script if not automatically done.
+      # volumes:
+      #   - ./init-vector-db.sql:/docker-entrypoint-initdb.d/init-vector-db.sql
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data # Persist vector database data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgvector_data:
