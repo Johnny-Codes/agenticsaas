@@ -1,0 +1,1 @@
+This is the backend for the agentic saas project using FastAPI, PG, PGVector, Pydantic AI, Agno AI
