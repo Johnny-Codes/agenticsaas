@@ -1,0 +1,158 @@
+# --- General ignores ---
+# Ignore editor backup files
+*~
+*.bak
+*.swp
+*.swo
+.vscode
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# --- Python / FastAPI ignores ---
+# Virtual environment
+# Common names: venv, .venv, env
+backend/venv/
+backend/.venv/
+backend/env/
+
+
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Distribution / build files
+.Python
+build/
+dist/
+*.egg-info/
+.tox/
+.coverage
+.pytest_cache/
+
+# Jupyter Notebook checkpoint files
+.ipynb_checkpoints
+
+# Database files (if using local SQLite for development)
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables file (contains secrets)
+.env
+.flaskenv
+
+# FastAPI specific ignores (if any, though most are covered by general Python ignores)
+
+
+# --- Node.js / React / Vite ignores ---
+# Dependency directory
+node_modules/
+# pnpm store (if using pnpm)
+.pnpm-store/
+
+# Build output directory (Vite's default)
+dist/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Editor/IDE specific files
+.vscode/ # Visual Studio Code
+.idea/   # IntelliJ IDEA / WebStorm
+.sublime-project
+.sublime-workspace
+
+# npm package.json lock files (choose one based on your package manager)
+# package-lock.json # Uncomment if using npm
+# yarn.lock       # Uncomment if using Yarn
+# pnpm-lock.yaml  # Uncomment if using pnpm
+
+# Vite specific ignores (usually covered by general Node.js ignores)
+# For example, Vite's cache directory
+.vite/
+
+# Cypress.io
+cypress/videos/
+cypress/screenshots/
+
+# Jest coverage
+coverage/
+
+# Next.js (if you were using it, uncomment)
+# .next/
+
+# Nuxt.js (if you were using it, uncomment)
+# .nuxt/
+
+# SvelteKit (if you were using it, uncomment)
+# .svelte-kit/
+
+# Vuepress (if you were using it, uncomment)
+# .vuepress/.cache/
+# .vuepress/.temp/
+
+# Docusaurus (if you were using it, uncomment)
+# .docusaurus/
+
+# output of `vite-ssg` (if you were using it, uncomment)
+# dist/
+
+# microbundle output (if you were using it, uncomment)
+# dist/
+
+# Serverless directories (if you were using it, uncomment)
+# .serverless/
+
+# FuseBox cache (if you were using it, uncomment)
+# .fusebox/
+
+# DynamoDB Local (if you were using it, uncomment)
+# .dynamodb/
+
+# TernJS port file (if you were using it, uncomment)
+# .tern-port
+
+# Lerna cache (if you were using it, uncomment)
+# .lerna/
+
+# Netlify directory (if you were using it, uncomment)
+# .netlify/
+
+# Docker ignores (if you have specific Docker build outputs you want to ignore)
+# For example, if you build images locally and don't want to commit them
+# *.dockerignore # It's generally good practice to commit your .dockerignore
+# *.tar # Docker save output
+
+# Uploads or generated files (if your app creates these)
+# /uploads/
+# /generated_files/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/* 
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
