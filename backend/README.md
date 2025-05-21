@@ -12,3 +12,4 @@ To Do:
 
 - [ ] Multi modal - get images, tables, figures, etc.
 - [ ] Extract references
+- [ ] Celery for background tasks
