@@ -13,6 +13,8 @@ services:
       # Database connection string for the vector database
       VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
       # Add any other necessary environment variables for your FastAPI app
+      UPLOAD_DIR: ./uploads/
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       - db
       - vectordb
