@@ -1,54 +1,64 @@
 import os
-import pathlib
-from typing import Union, List
-import json  # Added for parsing the JSON response from OpenAI
-import re  # Add this import at the top of your file
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import re
+from typing import List
+import json
+import re
 
-import pymupdf4llm
+from fastapi import FastAPI, HTTPException
+
 import pymupdf
-from multi_column import column_boxes
 
 from pydantic import BaseModel
+from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai import Agent
 
-# pydantic-ai imports are still here for other agents if needed
-# from pydantic_ai.models.openai import OpenAIModel
-# from pydantic_ai.providers.openai import OpenAIProvider
-# from pydantic_ai import Agent
 
-# Import the OpenAI library
+import openai
 from openai import AsyncOpenAI
 
-from chonkie import RecursiveChunker
-from agno.agent import Agent
+from chonkie import RecursiveChunker, SemanticChunker
+
+from agno.agent import Agent as AgnoAgent
 from agno.document.chunking.agentic import AgenticChunking
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 
+from helper_functions.parse import clean_extracted_text
+
+from routers import reqs, testing
+
 app = FastAPI()
+app.include_router(testing.router)
+app.include_router(reqs.router)
+
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads/")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+provider = OpenAIProvider(base_url="http://host.docker.internal:11434/v1")
+ollama_model = OpenAIModel(model_name="llama3.2:latest", provider=provider)
+phi_model = OpenAIModel(model_name="phi3:14b", provider=provider)
+
+parsing_agent = Agent(
+    model=OpenAIModel(
+        model_name="gpt-4.1", provider=OpenAIProvider(api_key=OPENAI_API_KEY)
+    )
+)
+
+
+class RequirementOutput(BaseModel):
+    requirements: List[str]
 
 
 @app.post("/agentic_chunking/")
 async def agentic_chunking():
 
-    # Get vector DB URL from environment (set in docker-compose)
-    vector_db_url = os.getenv("VECTOR_DATABASE_URL")
-    if not vector_db_url:
-        raise HTTPException(
-            status_code=500, detail="VECTOR_DATABASE_URL not set in environment."
-        )
+    vector_db_url = "postgresql+psycopg2://user:password@vectordb:5432/vector_db"
 
-    # PgVector expects SQLAlchemy-style URL, often 'postgresql+psycopg2://...'
-    if vector_db_url.startswith("postgresql://"):
-        vector_db_url = vector_db_url.replace(
-            "postgresql://", "postgresql+psycopg2://", 1
-        )
-
-    table_name = "singh2018_agentic_chunking"
+    table_name = "test"
 
     knowledge_base = PDFUrlKnowledgeBase(
         urls=[
@@ -58,143 +68,66 @@ async def agentic_chunking():
         chunking_strategy=AgenticChunking(),
     )
 
-    # This is a blocking call, so run it in a threadpool to avoid blocking the event loop
-    from fastapi.concurrency import run_in_threadpool
+    knowledge_base.load(recreate=False)
 
-    await run_in_threadpool(
-        knowledge_base.load,
-        True,
-    )  # recreate=False for incremental load
-
-    agent = Agent(
-        knowledge_base=knowledge_base,
+    agent = AgnoAgent(
+        knowledge=knowledge_base,
         search_knowledge=True,
     )
 
-    response = agent.print_response("What is this paper about?", markdown=True)
+    response = agent.print_response("How do you build an agent?", markdown=True)
     return {"response": response}
 
 
-"""
+open_ai_model = OpenAIModel(
+    model_name="gpt-4.1", provider=OpenAIProvider(api_key=OPENAI_API_KEY)
+)
+
+requirements_agent = Agent(
+    open_ai_model,
+    system_prompt=(
+        "You are an expert requirements engineer. Extract all requirements from the document and return them as a list of strings List[str]. Do not include any additional text or explanation but you can reformat the text to make it readable."
+    ),
+)
+
+
 @app.post("/chunkie/")
 def chunkie():
     # https://medium.com/@pymupdf/extracting-text-from-multi-column-pages-a-practical-pymupdf-guide-a5848e5899fe
-    doc = pymupdf.open("./uploads/singh2018.pdf")
-    out = open("./uploads/outputchunks.txt", "wb")
+    doc = pymupdf.open("./uploads/20090110-fua-spec-v1.1.pdf")
+    out = open("./uploads/routputchunks.txt", "wb")
     for page in doc:
         text = page.get_text().encode("utf-8")
         out.write(text)
         out.write(bytes((12,)))
     out.close
 
-    with open("./uploads/outputchunks.txt", "r") as f:
+    with open("./uploads/routputchunks.txt", "r") as f:
         pdf_data = f.read()
 
-    print(pdf_data)
+    clean_extracted_text(pdf_data)
 
     chunker = RecursiveChunker()
+    # chunker = SemanticChunkerChunker(threshold=0.5, min_sentences=1)
     chunks = chunker(pdf_data)
     counter = 0
     chunk_dict = {}
     for chunk in chunks:
-        print(f"Chunk: {chunk.text}")
-        print(f"Tokens: {chunk.token_count}")
         chunk_dict[counter] = chunk.text
         counter += 1
-    dict_out = open("./uploads/dict_out.txt", "w")
+        # requirements = requirements_agent.run_sync(chunk)
+        # print(f"{requirements}")
+    dict_out = open("./uploads/rdict_out.txt", "w")
     dict_out.write(str(chunk_dict))
+    requirements_list = []
+    for key in chunk_dict:
+        if key <= 20 or key >= 30:
+            pass
+        requirements = requirements_agent.run_sync(chunk_dict[key])
+        print(requirements)
+        requirements_list.append(requirements)
+    print(requirements_list)
     return "Yay"
-
-
-@app.post("/pdf_upload/")
-async def upload_pdf_file(file: UploadFile = File(...)):
-    if file.content_type != "application/pdf":
-        return {"error": "Only PDF files are allowed."}
-
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-
-    parsed_true = await parse_pdf(file_path)
-
-    return {
-        "message": f"PDF file {file.filename} uploaded successfully to {file_path} and {parsed_true}."
-    }
-
-
-class PDFData(BaseModel):
-    title: str
-    authors: List[str]
-
-
-provider = OpenAIProvider(base_url="http://host.docker.internal:11434/v1")
-ollama_model = OpenAIModel(model_name="llama3.2:latest", provider=provider)
-
-pdf_title_agent = Agent(
-    ollama_model,
-    system_prompt=(
-        "You are a helpful assistant. Extract the title and authors of the document. "
-        "Fix any formatting issues in the title (e.g., remove extra spaces, convert to title case, etc.). "
-        "Your response must be a JSON object with the following format: "
-        '{"title": "<title>", "authors": ["<author1>", "<author2>", ...]}. '
-        "Do not include any additional text or explanation."
-    ),
-    output_type=PDFData,
-)
-
-
-async def parse_pdf(file_path: str):
-    md_text = pymupdf4llm.to_markdown(file_path)
-    md_file_path = f"{file_path[:-4]}.md"
-    pathlib.Path(md_file_path).write_bytes(md_text.encode())
-    pdf_data = await get_pdf_title(md_text)
-
-    return f"{pdf_data}"
-
-
-async def get_pdf_title(md_text: str):
-    try:
-        data = await pdf_title_agent.run(
-            f"What is the title and who are the authors of this document? {md_text[:300]}",
-        )
-        print(f"Model response: {data}")
-        return data
-    except Exception as e:
-        print(f"Error: {e}")
-        raise
-
-
-# This Pydantic model is still useful for defining the expected structure if you parse the JSON
-class FixedText(BaseModel):
-    text: str
-
-
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
-# Initialize the AsyncOpenAI client
-# The base_url should point to the actual OpenAI API endpoint or your proxy
-aclient = AsyncOpenAI(
-    api_key=openai_api_key,
-    # base_url="https://api.openai.com/v1" # Default, or your specific proxy if any
-)
-
-# The ollama_deepseek_model and fix_md_agent are no longer used for this endpoint
-# You can remove them if they are not used elsewhere, or keep them for other purposes.
-# ollama_deepseek_model = OpenAIModel(
-#     model_name="llama3.1",
-#     provider=provider,
-# )
-#
-# fix_md_agent = Agent(
-#     openai_model, # This was using the pydantic-ai OpenAIModel
-#     system_prompt=(
-#         "You are a helpful assistant. Fix any formatting issues in the markdown text. "
-#         "Don't add text, remove text, or explain anything. Just fix Markdown formatting issues."
-#         "Your response must be json with the following format: {'text': '<fixed text>'}. "
-#         "Do not include any additional text or explanation. IMPORTANT: RETURN THE ENTIRE DOCUMENT."
-#     ),
-#     output_type=FixedText,
-# )
 
 
 # Helper function to split markdown by headings
@@ -328,4 +261,3 @@ async def fix_md_formatting():
 
 
 # this looks cool https://docling-project.github.io/docling/examples/export_figures/
-"""
