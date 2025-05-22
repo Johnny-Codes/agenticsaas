@@ -29,7 +29,11 @@ from helper_functions.parse import clean_extracted_text
 
 from routers import reqs, testing
 
-app = FastAPI()
+app = FastAPI(
+    title="Requirements Engineering Agentic AI",
+    version="0.1",
+    description="Part of my Ph.D. dissertation.",
+)
 app.include_router(testing.router)
 app.include_router(reqs.router)
 

@@ -1,67 +1,60 @@
 services:
   backend:
     build:
-      context: ./backend # Assuming your FastAPI code is in a 'backend' directory
+      context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000" # Or your desired port
+      - "8000:8000"
     volumes:
-      - ./backend:/app # Mount your backend code for live updates (optional for production)
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads # Mount for file uploads
     environment:
-      # Database connection string for the standard database
-      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
-      # Database connection string for the vector database
-      VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
-      # Add any other necessary environment variables for your FastAPI app
-      UPLOAD_DIR: ./uploads/
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VECTOR_DATABASE_URL: ${VECTOR_DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
-      - db
-      - vectordb
+      - redis
+    networks:
+      - app-network
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A tasks.tasks worker --loglevel=info # Standard worker command
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads # Access uploaded files
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - app-network
 
   frontend:
     build:
-      context: ./frontend # Assuming your React code is in a 'frontend' directory
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80" # Or your desired port for the React app
+      - "3000:80" # Map to standard HTTP port
     volumes:
-      - ./frontend:/app # Mount your frontend code for live updates (optional for production)
-      - /app/node_modules # Avoids overwriting node_modules in the container
+      - ./frontend:/app
+      - /app/node_modules # Avoids overwriting node_modules
     depends_on:
-      - backend
-    networks:
-      - app-network
-
-  db:
-    image: postgres:13 # You can choose a different PostgreSQL version
-    ports:
-      - "5433:5432" # Map to a different host port if 5432 is in use
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydatabase
-    volumes:
-      - postgres_data:/var/lib/postgresql/data # Persist standard database data
-    networks:
-      - app-network
-
-  vectordb:
-    image: ankane/pgvector # Using a pre-built image with pgvector
-    ports:
-      - "5434:5432" # Map to a different host port
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: vector_db
-      # If using ankane/pgvector, you might need to explicitly enable the extension
-      # via an initialization script if not automatically done.
-      # volumes:
-      #   - ./init-vector-db.sql:/docker-entrypoint-initdb.d/init-vector-db.sql
-    volumes:
-      - pgvector_data:/var/lib/postgresql/data # Persist vector database data
+      - backend # Frontend needs backend to be up for API calls
     networks:
       - app-network
 
@@ -70,5 +63,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
-  pgvector_data:
+  redis_data:
