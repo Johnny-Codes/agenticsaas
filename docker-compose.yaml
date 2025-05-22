@@ -7,14 +7,17 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./backend/uploads:/app/uploads # Mount for file uploads
+      - ./backend/uploads:/app/uploads
     environment:
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
+      UPLOAD_DIR: ./uploads/
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      VECTOR_DATABASE_URL: ${VECTOR_DATABASE_URL}
-      DATABASE_URL: ${DATABASE_URL}
     depends_on:
+      - db
+      - vectordb
       - redis
     networks:
       - app-network
@@ -23,14 +26,20 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A tasks.tasks worker --loglevel=info # Standard worker command
+    command: celery -A tasks worker --loglevel=info
     volumes:
       - ./backend:/app
-      - ./backend/uploads:/app/uploads # Access uploaded files
+      - ./backend/uploads:/app/uploads
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
+      UPLOAD_DIR: ./uploads/
     depends_on:
+      - db
+      - vectordb
       - redis
     networks:
       - app-network
@@ -49,12 +58,38 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80" # Map to standard HTTP port
+      - "3000:80"
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Avoids overwriting node_modules
+      - /app/node_modules
     depends_on:
-      - backend # Frontend needs backend to be up for API calls
+      - backend
+    networks:
+      - app-network
+
+  db:
+    image: postgres:13
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  vectordb:
+    image: ankane/pgvector
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vector_db
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
     networks:
       - app-network
 
@@ -63,4 +98,6 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data:
+  pgvector_data:
   redis_data:
