@@ -1,6 +1,6 @@
 import os
 from fastapi import APIRouter
-
+from tasks.tests import test_task
 
 router = APIRouter(
     prefix="/testing",
@@ -14,16 +14,14 @@ testing_agent_prompt = (
 
 @router.post("/test/")
 def test():
-    # Read the actual PDF text (or any text file) instead of passing the file path
-    file_path = "./uploads/routputchunks.txt"
-    if not os.path.exists(file_path):
-        return {"error": f"File not found: {file_path}"}
-    with open(file_path, "r", encoding="utf-8") as f:
-        document_text = f.read()
+    # Example arguments for your test_task
+    arg1 = "hello"
+    arg2 = "world"
 
-    testing_agent = Agent(
-        model=phi_model,
-        system_prompt=testing_agent_prompt,
-    )
-    requirements = phi_agent.run_sync(document_text)
-    return {"requirements": requirements}
+    # Call the Celery task asynchronously
+    result = test_task.delay(arg1, arg2)
+
+    # Optionally, wait for the result (not recommended for production)
+    output = result.get(timeout=10)
+
+    return {"task_id": result.id, "result": output}

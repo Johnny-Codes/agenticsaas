@@ -1,6 +1,6 @@
-from ..tasks import celery
+from celery_app import celery
 
 
 @celery.task
-def test_task():
-    return "42"
+def test_task(a, b):
+    return f"Test task received: {a}, {b}"
