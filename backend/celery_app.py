@@ -26,4 +26,9 @@ celery.conf.update(
     broker_connection_retry_on_startup=True,
 )
 
-celery.autodiscover_tasks(["tasks"])
+celery.autodiscover_tasks(["backend.tasks"])
+
+
+# @celery.task
+# def test_task(a, b):
+#     return f"Test task received: {a}, {b}"
