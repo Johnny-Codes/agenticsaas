@@ -17,4 +17,4 @@ To Do:
 
 ## Database and Migrations
 
-Using yoyo for migrations. `yoyo apply --database "$DATABASE_URL" ./migrations
+Using yoyo for migrations. `yoyo apply --database "$DATABASE_URL" ./migrations`

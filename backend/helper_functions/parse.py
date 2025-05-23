@@ -2,15 +2,15 @@ import re
 import unicodedata
 import pathlib
 import logging
-import asyncio  # Keep for context, but sleep will be time.sleep
-import time  # Import time for synchronous sleep
+import time
+import json  # For parsing JSON response from agent
 
 import pymupdf4llm
 
 from agents.parse import pdf_metadata_agent
 from pydantic_ai import (
     exceptions as pydantic_ai_exceptions,
-)  # Import pydantic-ai exceptions
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,55 +41,100 @@ def clean_extracted_text(text: str) -> str:
     return text
 
 
-def get_pdf_title(
+def get_pdf_metadata(
     md_text: str, max_retries: int = 5, delay_seconds: int = 2
-):  # Changed to def
+) -> dict:
     """
-    Tries to get PDF title and authors using an agent, with retries.
+    Tries to get PDF title and a list of authors using an agent, with retries.
+    Returns a dictionary: {"title": "...", "authors": ["...", "..."]}.
     """
+    # Adjust this prompt to encourage your agent to return structured JSON
+    prompt = (
+        f"Extract the title and a list of all authors from the following document text. "
+        f"Respond ONLY with a JSON object with two keys: 'title' (a string) and 'authors' (a list of strings). "
+        f"Document text snippet: {md_text[:1500]}"  # Increased snippet size
+    )
+
     for attempt in range(max_retries):
         try:
-            # Assuming pdf_metadata_agent has a synchronous 'run_sync' method
-            # or that 'run' behaves synchronously if not awaited (less common for true async).
-            # Adjust if your agent's synchronous method is different.
-            data = pdf_metadata_agent.run_sync(  # Changed to run_sync (or your agent's sync equivalent)
-                f"What is the title and who are the authors of this document? {md_text[:1000]}",
+            raw_agent_response = pdf_metadata_agent.run_sync(prompt)
+            logger.info(
+                f"Agent raw response on attempt {attempt + 1}: {raw_agent_response}"
             )
-            logger.info(f"Model response on attempt {attempt + 1}: {data}")
-            if data:
-                return data
+
+            if not raw_agent_response:
+                logger.warning(f"Attempt {attempt + 1}: Agent returned empty data.")
+                if attempt + 1 == max_retries:
+                    raise Exception("Agent returned empty data after max retries.")
+                time.sleep(delay_seconds * (attempt + 1))
+                continue
+
+            # Attempt to parse the response as JSON
+            # LLMs sometimes wrap JSON in markdown code blocks
+            cleaned_response = raw_agent_response.strip()
+            if cleaned_response.startswith("```json"):
+                cleaned_response = cleaned_response[7:]
+            if cleaned_response.endswith("```"):
+                cleaned_response = cleaned_response[:-3]
+
+            parsed_data = json.loads(cleaned_response.strip())
+
+            if (
+                isinstance(parsed_data, dict)
+                and "title" in parsed_data
+                and isinstance(parsed_data["title"], str)
+                and "authors" in parsed_data
+                and isinstance(parsed_data["authors"], list)
+                and all(isinstance(author, str) for author in parsed_data["authors"])
+            ):
+                logger.info(f"Successfully parsed metadata: {parsed_data}")
+                return parsed_data
+            else:
+                logger.warning(
+                    f"Attempt {attempt + 1}: Parsed data not in expected format: {parsed_data}"
+                )
+                if attempt + 1 == max_retries:
+                    raise ValueError(
+                        "Parsed data not in expected format after max retries."
+                    )
+                time.sleep(delay_seconds * (attempt + 1))
+
+        except json.JSONDecodeError as e:
+            logger.warning(
+                f"Attempt {attempt + 1}/{max_retries} failed to parse JSON: {e}. Response: {raw_agent_response}"
+            )
+            if attempt + 1 == max_retries:
+                raise
+            time.sleep(delay_seconds * (attempt + 1))
         except pydantic_ai_exceptions.UnexpectedModelBehavior as e:
             logger.warning(
                 f"Attempt {attempt + 1}/{max_retries} failed due to UnexpectedModelBehavior: {e}"
             )
             if attempt + 1 == max_retries:
-                logger.error(f"Exceeded max retries ({max_retries}) for get_pdf_title.")
                 raise
-            time.sleep(delay_seconds * (attempt + 1))  # Changed to time.sleep
+            time.sleep(delay_seconds * (attempt + 1))
         except Exception as e:
             logger.error(
                 f"Attempt {attempt + 1}/{max_retries} failed with an unexpected error: {e}",
                 exc_info=True,
             )
             if attempt + 1 == max_retries:
-                logger.error(
-                    f"Exceeded max retries ({max_retries}) for get_pdf_title after unexpected error."
-                )
                 raise
-            time.sleep(delay_seconds)  # Changed to time.sleep
+            time.sleep(delay_seconds)
 
-    logger.error(f"Failed to get PDF title after {max_retries} attempts.")
-    raise Exception(f"Failed to get PDF title after {max_retries} attempts.")
+    logger.error(f"Failed to get PDF metadata after {max_retries} attempts.")
+    raise Exception(f"Failed to get PDF metadata after {max_retries} attempts.")
 
 
-def parse_pdf(file_path: str):  # Changed to def
+def parse_pdf(file_path: str) -> dict:
     logger.info(f"Starting PDF parsing for: {file_path}")
-    md_text = pymupdf4llm.to_markdown(file_path)  # This is already synchronous
-    md_file_path = f"{file_path[:-4]}.md"
-    pathlib.Path(md_file_path).write_bytes(md_text.encode())
-    logger.info(f"Markdown content saved to: {md_file_path}")
+    md_text = pymupdf4llm.to_markdown(file_path)
+    # Saving the .md file is optional if you only need the metadata for the DB
+    # md_file_path = f"{file_path[:-4]}.md"
+    # pathlib.Path(md_file_path).write_bytes(md_text.encode())
+    # logger.info(f"Markdown content saved to: {md_file_path}")
 
-    pdf_data = get_pdf_title(md_text)  # This is now a synchronous call
-    logger.info(f"Successfully extracted pdf_data for {file_path}: {pdf_data}")
+    pdf_metadata = get_pdf_metadata(md_text)  # Changed from get_pdf_title
+    logger.info(f"Successfully extracted pdf_metadata for {file_path}: {pdf_metadata}")
 
-    return f"{pdf_data}"
+    return pdf_metadata  # Return the dictionary

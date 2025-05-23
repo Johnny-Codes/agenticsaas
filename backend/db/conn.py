@@ -1,7 +1,7 @@
 import os
 import psycopg2
-from psycopg2.extras import RealDictCursor  # Useful for getting results as dictionaries
-from typing import Generator, Dict, Any, List, Optional
+from psycopg2.extras import RealDictCursor
+from typing import Generator
 
 # --- Configuration ---
 # Read database URLs from environment variables defined in docker-compose.yml
@@ -54,17 +54,34 @@ def get_db_conn() -> Generator[psycopg2.extensions.connection, None, None]:
 
 # Dependency function for standard database cursor
 def get_db_cursor_dependency(
-    conn: psycopg2.extensions.connection = Depends(get_db_conn),
+    # conn: psycopg2.extensions.connection = Depends(get_db_conn), # Remove Depends here
 ) -> Generator[psycopg2.extensions.cursor, None, None]:
     """
     FastAPI dependency that provides a cursor for the standard database.
-    Uses the connection provided by get_db_conn.
+    This function itself should not use Depends in its signature.
+    It's intended to be used WITH Depends in a route.
+    To use this, a route would look like:
+    async def my_route(cursor: psycopg2.extensions.cursor = Depends(get_db_cursor_dependency)):
+        pass
+    And FastAPI would first call get_db_conn, then pass its result to this function.
+    However, the typical pattern is to depend on get_db_conn and then get a cursor.
+    Let's simplify this to match common patterns or adjust how it's used.
+
+    A more common pattern for a cursor dependency:
     """
-    cursor = get_db_cursor(conn)
+    conn = get_db_connection()  # Or, if you want to use the get_db_conn generator:
+    # This function would need to be called within a route that
+    # already has a 'conn' from 'Depends(get_db_conn)'
+    # For a standalone cursor dependency that manages its own connection:
+    cursor = None
     try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         yield cursor
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
+        if conn:  # Ensure conn is closed if this function manages it
+            conn.close()
 
 
 # --- Vector Database Connection ---
@@ -108,17 +125,22 @@ def get_vector_db_conn() -> Generator[psycopg2.extensions.connection, None, None
 
 # Dependency function for vector database cursor
 def get_vector_db_cursor_dependency(
-    conn: psycopg2.extensions.connection = Depends(get_vector_db_conn),
+    # conn: psycopg2.extensions.connection = Depends(get_vector_db_conn), # Remove Depends here
 ) -> Generator[psycopg2.extensions.cursor, None, None]:
     """
     FastAPI dependency that provides a cursor for the vector database.
-    Uses the connection provided by get_vector_db_conn.
+    Manages its own connection for simplicity as a direct dependency.
     """
-    cursor = get_vector_db_cursor(conn)
+    conn = get_vector_db_connection()
+    cursor = None
     try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         yield cursor
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 # --- How to use in FastAPI Endpoints ---
@@ -190,4 +212,4 @@ def get_vector_db_cursor_dependency(
 #         results = vector_db_cursor.fetchall()
 #         return results
 #     except psycopg2.Error as e:
-#         raise HTTPException(status_code=500, detail=f"Vector database search error: {e
+#         raise HTTPException(status_code=500, detail=f"Vector database search error: {e}")
