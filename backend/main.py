@@ -21,6 +21,7 @@ from openai import AsyncOpenAI
 from chonkie import RecursiveChunker, SemanticChunker
 
 from agno.agent import Agent as AgnoAgent
+from agno.agent import RunResponse
 from agno.document.chunking.agentic import AgenticChunking
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.pgvector import PgVector
@@ -72,15 +73,15 @@ async def agentic_chunking():
         chunking_strategy=AgenticChunking(),
     )
 
-    knowledge_base.load(recreate=False)
+    # knowledge_base.load(recreate=False)
 
-    agent = AgnoAgent(
+    agent: AgnoAgent = AgnoAgent(
         knowledge=knowledge_base,
         search_knowledge=True,
     )
 
-    response = agent.print_response("How do you build an agent?", markdown=True)
-    return {"response": response}
+    response: RunResponse = agent.run("How do you build an agent?", markdown=True)
+    return {"response": response.content}
 
 
 open_ai_model = OpenAIModel(
@@ -119,8 +120,6 @@ def chunkie():
     for chunk in chunks:
         chunk_dict[counter] = chunk.text
         counter += 1
-        # requirements = requirements_agent.run_sync(chunk)
-        # print(f"{requirements}")
     dict_out = open("./uploads/rdict_out.txt", "w")
     dict_out.write(str(chunk_dict))
     requirements_list = []

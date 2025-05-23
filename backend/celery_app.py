@@ -27,7 +27,9 @@ celery.conf.update(
 )
 
 
-celery.autodiscover_tasks(["tasks"])
-# @celery.task(name="test_task")
+celery.autodiscover_tasks(["backend.tasks"])
+
+
+# @celery.task
 # def test_task(a, b):
 #     return f"Test task received: {a}, {b}"
