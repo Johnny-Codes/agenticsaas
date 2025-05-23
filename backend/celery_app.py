@@ -7,6 +7,7 @@ from celery.utils.log import get_task_logger
 
 from config import settings
 
+
 logger = get_task_logger(__name__)
 
 # Initialize Celery app
@@ -27,9 +28,7 @@ celery.conf.update(
 )
 
 
-celery.autodiscover_tasks(["backend.tasks"])
+celery.autodiscover_tasks(["tasks"])
 
 
-# @celery.task
-# def test_task(a, b):
-#     return f"Test task received: {a}, {b}"
+from tasks.tests import test_task
