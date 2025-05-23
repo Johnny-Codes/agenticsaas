@@ -1,5 +1,7 @@
 import os
 from fastapi import APIRouter
+from celery_app import celery
+
 from tasks.tests import test_task
 
 router = APIRouter(
@@ -23,5 +25,4 @@ def test():
 
     # Optionally, wait for the result (not recommended for production)
     output = result.get(timeout=10)
-
     return {"task_id": result.id, "result": output}
