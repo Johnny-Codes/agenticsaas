@@ -38,6 +38,7 @@ services:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
       VECTOR_DATABASE_URL: postgresql://user:password@vectordb:5432/vector_db
       UPLOAD_DIR: ./uploads/
+      PYTHONPATH: /app
     depends_on:
       - db
       - vectordb
