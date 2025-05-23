@@ -14,3 +14,7 @@ To Do:
     - Figure out how to do multi_column
 - [ ] Extract references
 - [ ] Celery for background tasks
+
+## Database and Migrations
+
+Using yoyo for migrations. `yoyo apply --database "$DATABASE_URL" ./migrations
