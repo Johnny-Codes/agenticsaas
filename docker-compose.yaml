@@ -95,6 +95,18 @@ services:
     networks:
       - app-network
 
+  neo4j:
+    image: neo4j:5
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/testpassword
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
@@ -103,3 +115,4 @@ volumes:
   postgres_data:
   pgvector_data:
   redis_data:
+  neo4j_data:
