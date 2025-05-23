@@ -13,3 +13,12 @@ Working on my Ph.D.
 5. Make sure Ollama is running
 6. `docker compose up`
 7. Frontend on `localhost:3000`, backend on `localhost:8000` and docs at `localhost:8000/docs`
+
+## Ollama
+
+Current models being used from Ollama are:
+- llama3.2:latest
+- phi3:14b
+
+1. Install Ollama
+2. In a terminal run the following command for each model listed above: `ollama pull <model>`
