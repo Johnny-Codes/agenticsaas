@@ -1,6 +1,5 @@
 import os
 from fastapi import APIRouter
-from celery_app import celery
 
 from tasks.tests import test_task
 

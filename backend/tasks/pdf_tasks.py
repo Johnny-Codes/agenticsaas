@@ -1,8 +1,13 @@
-from celery import Celery
+from celery_app import celery
+from helper_functions.parse import parse_pdf
 
-celery = Celery("tasks", broker="redis://redis:6379/0", backend="redis://redis:6379/0")
 
+@celery.task(name="tasks.pdf_tasks.get_pdf_data_task")
+# @celery.task
+def get_pdf_data_task(file_path):
+    # Convert the async parse_pdf to a sync function for Celery
+    import asyncio
 
-@celery.task
-def example_task(x, y):
-    return x + y
+    # Run the async parse_pdf in a new event loop
+    result = asyncio.run(parse_pdf(file_path))
+    return result

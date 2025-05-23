@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, UploadFile, File
 
-from helper_functions.parse import parse_pdf
+from tasks.pdf_tasks import get_pdf_data_task
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads/")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -26,8 +26,8 @@ async def upload_req(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    parsed_true = await parse_pdf(file_path)
+    x = get_pdf_data_task.delay(file_path).get()
 
     return {
-        "message": f"PDF file {file.filename} uploaded successfully to {file_path} and {parsed_true}."
+        "message": f"PDF file {file.filename} uploaded successfully to {file_path} {x.id}."
     }

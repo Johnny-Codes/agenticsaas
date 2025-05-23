@@ -28,7 +28,4 @@ celery.conf.update(
 )
 
 
-celery.autodiscover_tasks(["tasks"])
-
-
-from tasks.tests import test_task
+celery.autodiscover_tasks(["tasks.pdf_tasks", "tasks.tests"])

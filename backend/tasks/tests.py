@@ -1,7 +1,3 @@
-"""
-Need to figure out how to be able to break the celery tasks from celery_app.py
-"""
-
 from celery_app import celery
 
 
