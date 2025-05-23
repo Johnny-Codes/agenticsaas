@@ -34,9 +34,10 @@ def clean_extracted_text(text: str) -> str:
 
 
 async def get_pdf_title(md_text: str):
+    # md_text = clean_extracted_text(md_text)
     try:
         data = await pdf_metadata_agent.run(
-            f"What is the title and who are the authors of this document? {md_text[:300]}",
+            f"What is the title and who are the authors of this document? {md_text[:1000]}",
         )
         print(f"Model response: {data}")
         return data

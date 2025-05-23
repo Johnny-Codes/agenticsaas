@@ -26,8 +26,8 @@ async def upload_req(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    x = get_pdf_data_task.delay(file_path).get()
+    x = get_pdf_data_task.delay(file_path)
 
     return {
-        "message": f"PDF file {file.filename} uploaded successfully to {file_path} {x.id}."
+        "message": f"PDF file {file.filename} uploaded successfully to {file_path}."
     }
