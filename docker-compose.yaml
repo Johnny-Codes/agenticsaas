@@ -26,7 +26,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A tasks worker --loglevel=info
+    command: celery -A celery_app worker --loglevel=info
+    working_dir: /app
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
