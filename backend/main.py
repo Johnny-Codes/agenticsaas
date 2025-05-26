@@ -28,7 +28,7 @@ from agno.vectordb.pgvector import PgVector
 
 from helper_functions.parse import clean_extracted_text
 
-from routers import reqs, testing, tasks
+from routers import reqs, testing, tasks, mcp_routes
 
 app = FastAPI(
     title="Requirements Engineering Agentic AI",
@@ -38,6 +38,7 @@ app = FastAPI(
 app.include_router(testing.router)
 app.include_router(reqs.router)
 app.include_router(tasks.router)
+app.include_router(mcp_routes.router)
 
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads/")
