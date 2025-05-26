@@ -17,8 +17,9 @@ class PDFData(BaseModel):
 pdf_metadata_agent = PydanticAgent(
     ollama_model,
     system_prompt=(
-        "You are a helpful assistant. Extract the title and authors of the document. "
+        "You are a master document searcher. Extract the title and authors of the document. "
         "Fix any formatting issues in the title (e.g., remove extra spaces, convert to title case, etc.). "
+        "Fix any formatting issues in the authors (e.g., remove extra spaces, convert to title case, remove brackets, etc.). "
         "Your response must be a JSON object with the following format: "
         '{"title": "<title>", "authors": ["<author1>", "<author2>", ...]}. '
         "Do not include any additional text or explanation."

@@ -2,15 +2,16 @@ import re
 import unicodedata
 import pathlib
 import logging
-import time
-import json  # For parsing JSON response from agent
+import json
+import time  # Keep for potential future use, but not used in simplified version
 
 import pymupdf4llm
 
 from agents.parse import pdf_metadata_agent
-from pydantic_ai import (
+from pydantic_ai import (  # Keep for context, agent might raise these
     exceptions as pydantic_ai_exceptions,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,6 @@ def clean_extracted_text(text: str) -> str:
     """
     Applies a series of robust post-processing steps to text extracted from PDFs
     to clean up common parsing artifacts for NLP tasks.
-
-    Args:
-        text (str): The raw text string extracted from a PDF.
-
-    Returns:
-        str: The cleaned text string.
     """
     if not isinstance(text, str):
         return ""
@@ -41,100 +36,56 @@ def clean_extracted_text(text: str) -> str:
     return text
 
 
-def get_pdf_metadata(
-    md_text: str, max_retries: int = 5, delay_seconds: int = 2
-) -> dict:
+def get_pdf_metadata(md_text: str):  # Return type will be whatever agent returns
     """
-    Tries to get PDF title and a list of authors using an agent, with retries.
-    Returns a dictionary: {"title": "...", "authors": ["...", "..."]}.
+    Calls the PDF metadata agent with the provided markdown text and logs the raw response.
     """
-    # Adjust this prompt to encourage your agent to return structured JSON
-    prompt = (
-        f"Extract the title and a list of all authors from the following document text. "
-        f"Respond ONLY with a JSON object with two keys: 'title' (a string) and 'authors' (a list of strings). "
-        f"Document text snippet: {md_text[:1500]}"  # Increased snippet size
+
+    logger.info(
+        f"get_pdf_metadata: Calling agent with prompt based on md_text snippet (first 1500 chars)."
     )
 
-    for attempt in range(max_retries):
-        try:
-            raw_agent_response = pdf_metadata_agent.run_sync(prompt)
-            logger.info(
-                f"Agent raw response on attempt {attempt + 1}: {raw_agent_response}"
-            )
-
-            if not raw_agent_response:
-                logger.warning(f"Attempt {attempt + 1}: Agent returned empty data.")
-                if attempt + 1 == max_retries:
-                    raise Exception("Agent returned empty data after max retries.")
-                time.sleep(delay_seconds * (attempt + 1))
-                continue
-
-            # Attempt to parse the response as JSON
-            # LLMs sometimes wrap JSON in markdown code blocks
-            cleaned_response = raw_agent_response.strip()
-            if cleaned_response.startswith("```json"):
-                cleaned_response = cleaned_response[7:]
-            if cleaned_response.endswith("```"):
-                cleaned_response = cleaned_response[:-3]
-
-            parsed_data = json.loads(cleaned_response.strip())
-
-            if (
-                isinstance(parsed_data, dict)
-                and "title" in parsed_data
-                and isinstance(parsed_data["title"], str)
-                and "authors" in parsed_data
-                and isinstance(parsed_data["authors"], list)
-                and all(isinstance(author, str) for author in parsed_data["authors"])
-            ):
-                logger.info(f"Successfully parsed metadata: {parsed_data}")
-                return parsed_data
-            else:
-                logger.warning(
-                    f"Attempt {attempt + 1}: Parsed data not in expected format: {parsed_data}"
-                )
-                if attempt + 1 == max_retries:
-                    raise ValueError(
-                        "Parsed data not in expected format after max retries."
-                    )
-                time.sleep(delay_seconds * (attempt + 1))
-
-        except json.JSONDecodeError as e:
-            logger.warning(
-                f"Attempt {attempt + 1}/{max_retries} failed to parse JSON: {e}. Response: {raw_agent_response}"
-            )
-            if attempt + 1 == max_retries:
-                raise
-            time.sleep(delay_seconds * (attempt + 1))
-        except pydantic_ai_exceptions.UnexpectedModelBehavior as e:
-            logger.warning(
-                f"Attempt {attempt + 1}/{max_retries} failed due to UnexpectedModelBehavior: {e}"
-            )
-            if attempt + 1 == max_retries:
-                raise
-            time.sleep(delay_seconds * (attempt + 1))
-        except Exception as e:
-            logger.error(
-                f"Attempt {attempt + 1}/{max_retries} failed with an unexpected error: {e}",
-                exc_info=True,
-            )
-            if attempt + 1 == max_retries:
-                raise
-            time.sleep(delay_seconds)
-
-    logger.error(f"Failed to get PDF metadata after {max_retries} attempts.")
-    raise Exception(f"Failed to get PDF metadata after {max_retries} attempts.")
+    agent_run_result = pdf_metadata_agent.run_sync(md_text[:500])
+    logger.info(f"agent response is \n {agent_run_result}")
+    content = agent_run_result.output
+    logger.info(f"CONTENT: {content}")
+    # Convert the PDFData object to a dictionary
+    if hasattr(content, "model_dump"):
+        return content.model_dump()  # For Pydantic v2+
+    elif hasattr(content, "dict"):
+        return content.dict()  # For Pydantic v1
+    else:
+        # Fallback or error handling if it's not a known Pydantic model structure
+        logger.error("PDFData object does not have .model_dump() or .dict() method.")
+        # Depending on requirements, you might raise an error or return the object as is,
+        # or try another serialization method if applicable.
+        # For now, let's raise an error if it cannot be converted.
+        raise TypeError("Cannot convert PDFData object to dictionary")
 
 
-def parse_pdf(file_path: str) -> dict:
-    logger.info(f"Starting PDF parsing for: {file_path}")
-    md_text = pymupdf4llm.to_markdown(file_path)
-    # Saving the .md file is optional if you only need the metadata for the DB
-    # md_file_path = f"{file_path[:-4]}.md"
-    # pathlib.Path(md_file_path).write_bytes(md_text.encode())
-    # logger.info(f"Markdown content saved to: {md_file_path}")
+def parse_pdf(file_path: str):  # Return type will be whatever get_pdf_metadata returns
+    """
+    Parses a PDF to markdown, then calls get_pdf_metadata to extract metadata.
+    """
+    logger.info(f"parse_pdf: Starting PDF parsing for: {file_path}")
 
-    pdf_metadata = get_pdf_metadata(md_text)  # Changed from get_pdf_title
-    logger.info(f"Successfully extracted pdf_metadata for {file_path}: {pdf_metadata}")
+    try:
+        md_text = pymupdf4llm.to_markdown(file_path)
+        md_file_name = f"{file_path[:-4]}.md"
+        pathlib.Path(md_file_name).write_bytes(md_text.encode())
+        logger.info(f"parse_pdf: Markdown content saved to: {md_file_name}")
 
-    return pdf_metadata  # Return the dictionary
+        # Call the simplified get_pdf_metadata
+        raw_metadata_result = get_pdf_metadata(md_text)
+
+        logger.info(
+            f"parse_pdf: Result from get_pdf_metadata for {file_path}: {raw_metadata_result}"
+        )
+        return raw_metadata_result
+
+    except Exception as e:
+        logger.error(
+            f"parse_pdf: Error during PDF processing for {file_path}: {e}",
+            exc_info=True,
+        )
+        raise
