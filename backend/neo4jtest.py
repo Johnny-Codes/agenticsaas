@@ -1,5 +1,5 @@
 import os
-import asyncio  # Import asyncio
+import asyncio
 
 from langchain_neo4j import Neo4jGraph
 from langchain_experimental.graph_transformers import LLMGraphTransformer
@@ -19,12 +19,13 @@ os.environ["NEO4J_PASSWORD"] = "testpassword"
 graph = Neo4jGraph(refresh_schema=False)
 
 llm = ChatOpenAI(
-    temperature=0, model_name="gpt-4.1"
-)  # Assuming you meant gpt-4 or similar, adjust if needed
+    temperature=0,
+    model_name="gpt-4.1",  # Ensure this model name is correct for your OpenAI setup
+)
 llm_transformer = LLMGraphTransformer(llm=llm)
 
 
-async def main():  # Define an async function
+async def main():
     text = """
 Marie Curie, born in 1867, was a Polish and naturalised-French physicist and chemist who conducted pioneering research on radioactivity.
 She was the first woman to win a Nobel Prize, the first person to win a Nobel Prize twice, and the only person to win a Nobel Prize in two scientific fields.
@@ -37,11 +38,16 @@ She was, in 1906, the first woman to become a professor at the University of Par
     print(f"Relationships:{graph_documents[0].relationships}")
 
     # Add the graph documents to Neo4j
+    # If graph.add_graph_documents is a synchronous (blocking) call,
+    # and you're in an async function, you might need to run it in a thread
+    # to avoid blocking the event loop, e.g., using asyncio.to_thread if available
+    # or by making add_graph_documents an async method if the library supports it.
+    # For now, assuming it's okay or the library handles it.
     graph.add_graph_documents(graph_documents)
     print("Graph documents added to Neo4j.")
 
-    asyncio.run(main())  # Run the async functionif __name__ == "__main__":
+    # Removed the incorrect asyncio.run(main()) from here
 
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Run the async function
+    asyncio.run(main())
