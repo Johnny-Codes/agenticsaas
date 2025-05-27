@@ -103,6 +103,7 @@ services:
       - "7687:7687"   # Bolt protocol
     environment:
       NEO4J_AUTH: neo4j/testpassword
+      NEO4J_PLUGINS: '["apoc"]' # Add this line to enable APOC
     volumes:
       - neo4j_data:/data
     networks:
