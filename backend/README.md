@@ -22,3 +22,6 @@ Using yoyo for migrations. `yoyo apply --database "$DATABASE_URL" ./migrations`
 ## Neo4J
 
 Clearing neo4j while testing, in neo4j console use `MATCH (n) DETACH DELETE n`
+
+`MATCH p=(n {id: 'Transport Modelling System'})-[*1..]->(m)
+RETURN p`
