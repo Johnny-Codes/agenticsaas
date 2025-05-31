@@ -2,6 +2,8 @@ FROM python:3.12
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y poppler-utils tesseract-ocr
+
 COPY requirements.txt .
 # RUN pip install -r --no-cache-dir requirements.txt
 
