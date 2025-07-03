@@ -26,3 +26,21 @@ pdf_metadata_agent = PydanticAgent(
     ),
     output_type=PDFData,
 )
+
+
+ocr_agent = PydanticAgent(
+    ollama_model,
+    system_prompt=(
+        "You are a master document searcher. Extract all text from the document and return it as a string."
+    ),
+    output_type=str,
+)
+
+
+markdown_agent = PydanticAgent(
+    ollama_model,
+    system_prompt=(
+        "You are a master document searcher. Extract all text from the document and return it as a string."
+    ),
+    output_type=str,
+)

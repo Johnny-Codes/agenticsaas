@@ -75,7 +75,7 @@ async def agentic_chunking():
         chunking_strategy=AgenticChunking(),
     )
 
-    # knowledge_base.load(recreate=False)
+    knowledge_base.load(recreate=False)
 
     agent: AgnoAgent = AgnoAgent(
         knowledge=knowledge_base,
